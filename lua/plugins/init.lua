@@ -2,6 +2,65 @@ local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
 local utils = require("utils")
 local g = vim.g
 
+local function fzf_key(lhs, fn, desc)
+  return {
+    lhs,
+    function()
+      require("fzf-lua")[fn]()
+    end,
+    desc = desc,
+  }
+end
+
+local prettier_markers = {
+  ".prettierrc",
+  ".prettierrc.json",
+  ".prettierrc.json5",
+  ".prettierrc.yml",
+  ".prettierrc.yaml",
+  ".prettierrc.js",
+  ".prettierrc.cjs",
+  ".prettierrc.mjs",
+  "prettier.config.js",
+  "prettier.config.cjs",
+  "prettier.config.mjs",
+}
+
+local function repo_formatter(bufnr)
+  if vim.fs.root(bufnr, { "biome.json", "biome.jsonc" }) then
+    return { "biome" }
+  end
+  if vim.fs.root(bufnr, prettier_markers) then
+    return { "prettier" }
+  end
+  return {}
+end
+
+local formatters_by_ft = {
+  lua = { "stylua" },
+  go = { "goimports", "gofmt", stop_after_first = true },
+  python = { "ruff_format" },
+  rust = { "rustfmt" },
+}
+
+for _, filetype in ipairs({
+  "css",
+  "html",
+  "javascript",
+  "javascriptreact",
+  "json",
+  "jsonc",
+  "markdown",
+  "scss",
+  "svelte",
+  "typescript",
+  "typescriptreact",
+  "vue",
+  "yaml",
+}) do
+  formatters_by_ft[filetype] = repo_formatter
+end
+
 if not (vim.uv or vim.loop).fs_stat(lazypath) then
   local lazyrepo = "https://github.com/folke/lazy.nvim.git"
   local out = vim.fn.system({
@@ -46,7 +105,6 @@ require("lazy").setup({
   },
   spec = {
     { "tpope/vim-surround", event = "VeryLazy" },
-    "numToStr/Comment.nvim",
     {
       "junegunn/vim-easy-align",
       keys = {
@@ -56,11 +114,6 @@ require("lazy").setup({
     {
       url = "https://codeberg.org/andyg/leap.nvim",
       lazy = false
-    },
-    {
-      "L3MON4D3/LuaSnip",
-      version = "v2.*",
-      build = "make install_jsregexp",
     },
     {
       "sainnhe/sonokai",
@@ -79,9 +132,20 @@ require("lazy").setup({
       "ibhagwan/fzf-lua",
       cmd = "FzfLua",
       keys = {
-        { "<leader>t",  ":FzfLua files<cr>",     desc = "Find files" },
-        { "<leader>rg", ":FzfLua live_grep<cr>", desc = "Ripgrep" },
-        { "<leader>b",  ":FzfLua buffers<cr>",   desc = "Buffers" },
+        fzf_key("<leader>t", "global", "Go anywhere"),
+        fzf_key("<leader>rg", "live_grep", "Ripgrep"),
+        fzf_key("<leader>b", "buffers", "Buffers"),
+        fzf_key("<leader>rr", "resume", "Resume last picker"),
+
+        fzf_key("<leader>ld", "lsp_definitions", "LSP definitions"),
+        fzf_key("<leader>lr", "lsp_references", "LSP references"),
+        fzf_key("<leader>li", "lsp_implementations", "LSP implementations"),
+        fzf_key("<leader>lw", "lsp_workspace_symbols", "Workspace symbols"),
+        fzf_key("<leader>lx", "diagnostics_workspace", "Workspace diagnostics"),
+
+        fzf_key("<leader>gs", "git_status", "Git status"),
+        fzf_key("<leader>gh", "git_hunks", "Git hunks"),
+        fzf_key("<leader>gb", "git_bcommits", "Buffer commits"),
         {
           "<leader>ms",
           function()
@@ -105,53 +169,77 @@ require("lazy").setup({
       },
     },
     {
-      "neovim/nvim-lspconfig",
-      event = { "BufReadPost", "BufNewFile", "VeryLazy" },
-      dependencies = {
+      "lewis6991/gitsigns.nvim",
+      event = { "BufReadPre", "BufNewFile" },
+      opts = {
+        on_attach = function(bufnr)
+          local gitsigns = require("gitsigns")
+
+          local function map(mode, lhs, rhs, desc)
+            vim.keymap.set(mode, lhs, rhs, { buffer = bufnr, desc = desc })
+          end
+
+          map("n", "]h", function()
+            if vim.wo.diff then
+              vim.cmd.normal({ "]c", bang = true })
+            else
+              gitsigns.nav_hunk("next")
+            end
+          end, "Next hunk")
+          map("n", "[h", function()
+            if vim.wo.diff then
+              vim.cmd.normal({ "[c", bang = true })
+            else
+              gitsigns.nav_hunk("prev")
+            end
+          end, "Previous hunk")
+
+          map("n", "<leader>hp", gitsigns.preview_hunk, "Preview hunk")
+          map("n", "<leader>hs", gitsigns.stage_hunk, "Stage hunk")
+          map("n", "<leader>hr", gitsigns.reset_hunk, "Reset hunk")
+          map("v", "<leader>hs", function()
+            gitsigns.stage_hunk({ vim.fn.line("."), vim.fn.line("v") })
+          end, "Stage hunk")
+          map("v", "<leader>hr", function()
+            gitsigns.reset_hunk({ vim.fn.line("."), vim.fn.line("v") })
+          end, "Reset hunk")
+
+          map("n", "<leader>hb", function()
+            gitsigns.blame_line({ full = true })
+          end, "Blame line")
+          map("n", "<leader>hd", gitsigns.diffthis, "Diff against index")
+          map("n", "<leader>hD", function()
+            gitsigns.diffthis("~")
+          end, "Diff against base")
+        end,
+      },
+    },
+    {
+      "stevearc/conform.nvim",
+      keys = {
         {
-          "mason-org/mason.nvim",
-          opts = {},
-          build = ":MasonUpdate",
-        },
-        {
-          "mason-org/mason-lspconfig.nvim",
-          opts = function()
-            return {
-              automatic_enable = false,
-            }
+          "<leader>f",
+          function()
+            require("conform").format()
           end,
-        },
-        "hrsh7th/nvim-cmp",
-        {
-          "lewis6991/gitsigns.nvim",
-          init = function()
-            require("gitsigns").setup()
-          end,
-        },
-        {
-          "glepnir/lspsaga.nvim",
-          opts = {
-            code_action = {
-              show_server_name = true,
-              extend_gitsigns = false,
-            },
-            lightbulb = {
-              enable = false,
-            },
-            diagnostic = {
-              on_insert = false,
-              on_insert_follow = false,
-            },
-            rename = {
-              in_select = false,
-            },
-          },
+          mode = { "n", "v" },
+          desc = "Format buffer",
         },
       },
+      opts = {
+        default_format_opts = {
+          lsp_format = "fallback",
+        },
+        formatters_by_ft = formatters_by_ft,
+      },
+    },
+    {
+      "neovim/nvim-lspconfig",
+      event = { "BufReadPost", "BufNewFile", "VeryLazy" },
+      dependencies = { "hrsh7th/nvim-cmp" },
 
       config = function()
         local capabilities = require("cmp_nvim_lsp").default_capabilities()
-        local util = require("lspconfig.util")
         local function configure_server(name, config)
           vim.lsp.config(name, vim.tbl_deep_extend("force", {
             capabilities = capabilities,
@@ -183,19 +271,11 @@ require("lazy").setup({
 
             vim.keymap.set("n", "gD", vim.lsp.buf.declaration, bufopts)
             vim.keymap.set("n", "gd", vim.lsp.buf.definition, bufopts)
-            vim.keymap.set("n", "K", vim.lsp.buf.hover, bufopts)
             vim.keymap.set("n", "gi", vim.lsp.buf.implementation, bufopts)
             vim.keymap.set("n", "<C-k>", vim.lsp.buf.signature_help, bufopts)
 
             vim.keymap.set("n", "<leader>rn", vim.lsp.buf.rename, bufopts)
-            vim.keymap.set("n", "<leader>ca", "<cmd>Lspsaga code_action<CR>", bufopts)
-
-            vim.keymap.set("n", "<leader>f", function()
-              vim.lsp.buf.format({ async = false })
-            end, bufopts)
-
-            vim.keymap.set("n", "]c", "<cmd>Lspsaga diagnostic_jump_next<CR>", bufopts)
-            vim.keymap.set("n", "[c", "<cmd>Lspsaga diagnostic_jump_prev<CR>", bufopts)
+            vim.keymap.set("n", "<leader>ca", vim.lsp.buf.code_action, bufopts)
           end,
         })
 
@@ -222,6 +302,7 @@ require("lazy").setup({
         configure_server("sourcekit")
         configure_server("vue_ls")
         configure_server("svelte")
+        configure_server("gopls")
         configure_server("rust_analyzer", {
           settings = {
             ["rust-analyzer"] = {},
@@ -237,7 +318,7 @@ require("lazy").setup({
             ".git",
           },
           before_init = function(_, config)
-            local python = util.path.join(config.root_dir, ".venv", "bin", "python")
+            local python = vim.fs.joinpath(config.root_dir, ".venv", "bin", "python")
             if vim.fn.executable(python) == 1 then
               config.settings = config.settings or {}
               config.settings.python = config.settings.python or {}
@@ -247,13 +328,8 @@ require("lazy").setup({
           settings = {
             basedpyright = {
               disableOrganizeImports = true,
-            },
-            python = {
               analysis = {
-                diagnosticMode = "workspace",
-                useLibraryCodeForTypes = true,
-                autoSearchPaths = false,
-                typeCheckingMode = "standard",
+                diagnosticMode = "openFilesOnly",
               },
             },
           },
@@ -282,6 +358,7 @@ require("lazy").setup({
         enable_server("rust_analyzer", "rust-analyzer")
         enable_server("sourcekit", "sourcekit-lsp")
         enable_server("vue_ls", "vue-language-server")
+        enable_server("gopls", "gopls")
         enable_server("basedpyright", "basedpyright-langserver")
         enable_server("ruff", "ruff")
       end,
@@ -294,7 +371,6 @@ require("lazy").setup({
         "hrsh7th/cmp-nvim-lua",
         "hrsh7th/cmp-buffer",
         "hrsh7th/cmp-path",
-        "hrsh7th/cmp-cmdline",
       },
       opts = function()
         local cmp = require("cmp")
@@ -312,7 +388,8 @@ require("lazy").setup({
           end,
           formatting = {
             format = function(_, item)
-              item.kind = string.format("%s %s", utils.icons.lsp[item.kind], item.kind)
+              local icon = utils.icons.lsp[item.kind] or ""
+              item.kind = string.format("%s %s", icon, item.kind)
               return item
             end,
           },
@@ -331,7 +408,7 @@ require("lazy").setup({
           },
           snippet = {
             expand = function(args)
-              require("luasnip").lsp_expand(args.body)
+              vim.snippet.expand(args.body)
             end,
           },
           mapping = {
@@ -370,10 +447,8 @@ require("lazy").setup({
             ["<C-k>"] = cmp.mapping.complete({ reason = cmp.ContextReason.Auto }),
           },
           sources = cmp.config.sources({
-            { name = "cody" },
             { name = "nvim_lsp", keyword_length = 2 },
             { name = "nvim_lua" },
-            -- { name = "luasnip" },
             { name = "path" },
             { name = "buffer",   keyword_length = 2 },
           }),
@@ -402,12 +477,22 @@ require("lazy").setup({
           "diff",
           "gitcommit",
           "gitignore",
+          "go",
+          "gomod",
+          "gowork",
+          "hcl",
           "html",
           "javascript",
           "json",
           "lua",
           "markdown",
           "markdown_inline",
+          "python",
+          "rust",
+          "svelte",
+          "swift",
+          "terraform",
+          "toml",
           "tsx",
           "typescript",
           "vim",
@@ -459,10 +544,15 @@ require("lazy").setup({
       lazy = false,
       config = function()
         local select = require("nvim-treesitter-textobjects.select")
+        local move = require("nvim-treesitter-textobjects.move")
+        local swap = require("nvim-treesitter-textobjects.swap")
 
         require("nvim-treesitter-textobjects").setup({
           select = {
             lookahead = true,
+          },
+          move = {
+            set_jumps = true,
           },
         })
 
@@ -472,12 +562,34 @@ require("lazy").setup({
           end, { desc = desc })
         end
 
+        local function map_move(lhs, move_fn, query_string, desc)
+          vim.keymap.set({ "n", "x", "o" }, lhs, function()
+            move_fn(query_string, "textobjects")
+          end, { desc = desc })
+        end
+
         map_textobject("aa", "@parameter.outer", "Select around parameter")
         map_textobject("ia", "@parameter.inner", "Select inside parameter")
         map_textobject("af", "@function.outer", "Select around function")
         map_textobject("if", "@function.inner", "Select inside function")
         map_textobject("ac", "@class.outer", "Select around class")
         map_textobject("ic", "@class.inner", "Select inside class")
+
+        map_move("]m", move.goto_next_start, "@function.outer", "Next function")
+        map_move("]M", move.goto_next_end, "@function.outer", "Next function end")
+        map_move("[m", move.goto_previous_start, "@function.outer", "Previous function")
+        map_move("[M", move.goto_previous_end, "@function.outer", "Previous function end")
+        map_move("]C", move.goto_next_start, "@class.outer", "Next class")
+        map_move("[C", move.goto_previous_start, "@class.outer", "Previous class")
+        map_move("]a", move.goto_next_start, "@parameter.inner", "Next parameter")
+        map_move("[a", move.goto_previous_start, "@parameter.inner", "Previous parameter")
+
+        vim.keymap.set("n", "<leader>a", function()
+          swap.swap_next("@parameter.inner", "textobjects")
+        end, { desc = "Swap parameter with next" })
+        vim.keymap.set("n", "<leader>A", function()
+          swap.swap_previous("@parameter.inner", "textobjects")
+        end, { desc = "Swap parameter with previous" })
       end,
     },
   },

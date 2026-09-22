@@ -25,21 +25,28 @@ opt.synmaxcol = 200
 opt.autoread = true
 opt.background = "dark"
 opt.backupdir = backup_dir
+opt.breakindent = true
 opt.clipboard = "unnamedplus"
+opt.cmdheight = 1
+opt.confirm = true
 opt.cursorline = true
 opt.directory = swap_dir
 opt.hidden = true
 opt.ignorecase = true
+opt.inccommand = "split"
 opt.laststatus = 3
 opt.mouse = "n"
 opt.number = true
+opt.scrolloff = 4
 opt.showbreak = "↪"
 opt.showmatch = true
+opt.signcolumn = "yes"
 opt.smartcase = true
 opt.splitbelow = true
+opt.splitkeep = "screen"
 opt.splitright = true
+opt.undofile = true
 opt.virtualedit = "block"
-opt.cmdheight = 1
 
 map("i", "jk", "<Esc>")
 map("n", "s", "<Plug>(leap)")
@@ -66,7 +73,6 @@ vim.api.nvim_create_autocmd("FileType", {
     "json",
     "html",
     "css",
-    "python",
   },
   callback = function()
     vim.bo.tabstop = 2
