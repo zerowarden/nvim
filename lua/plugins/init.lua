@@ -324,11 +324,14 @@ require("lazy").setup({
         vim.api.nvim_create_autocmd("LspAttach", {
           callback = function(args)
             local bufnr = args.buf
+            local client = assert(vim.lsp.get_client_by_id(args.data.client_id))
             local bufopts = { noremap = true, silent = true, buffer = bufnr }
 
-            vim.lsp.completion.enable(true, args.data.client_id, bufnr, {
-              convert = complete_item_convert,
-            })
+            if client:supports_method("textDocument/completion") then
+              vim.lsp.completion.enable(true, client.id, bufnr, {
+                convert = complete_item_convert,
+              })
+            end
 
             vim.keymap.set("n", "gD", vim.lsp.buf.declaration, bufopts)
             vim.keymap.set("n", "gd", vim.lsp.buf.definition, bufopts)
