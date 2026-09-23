@@ -12,9 +12,12 @@ opt.softtabstop = 2
 opt.tabstop = 2
 opt.synmaxcol = 200
 
+opt.autocomplete = true
 opt.background = "dark"
 opt.breakindent = true
 opt.clipboard = "unnamedplus"
+opt.complete = "o"
+opt.completeopt = "menu,menuone,noselect,popup"
 opt.confirm = true
 opt.cursorline = true
 opt.cursorlineopt = "number"
@@ -40,6 +43,15 @@ opt.virtualedit = "block"
 opt.winborder = "rounded"
 
 map("i", "jk", "<Esc>")
+map("i", "<C-Space>", function()
+  vim.lsp.completion.get()
+end, { desc = "LSP completion" })
+map("i", "<C-y>", function()
+  if vim.fn.pumvisible() == 1 and vim.fn.complete_info({ "selected" }).selected == -1 then
+    return "<C-n><C-y>"
+  end
+  return "<C-y>"
+end, { expr = true, replace_keycodes = true, desc = "Accept completion" })
 map("n", ";", ":")
 map("n", "j", "gj", { noremap = true })
 map("n", "<leader><space>", ':let @/=""<CR>', { silent = true })

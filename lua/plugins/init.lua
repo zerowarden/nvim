@@ -159,6 +159,14 @@ require("lazy").setup({
         g.sonokai_show_eob = 0
         g.sonokai_transparent_background = 2
         vim.cmd.colorscheme("sonokai")
+
+        local palette = vim.fn["sonokai#get_palette"](g.sonokai_style, vim.empty_dict())
+        local statusline = { fg = palette.fg[1], bg = palette.bg3[1] }
+        local statusline_nc = { fg = palette.grey[1], bg = palette.bg1[1] }
+        vim.api.nvim_set_hl(0, "StatusLine", statusline)
+        vim.api.nvim_set_hl(0, "StatusLineTerm", statusline)
+        vim.api.nvim_set_hl(0, "StatusLineNC", statusline_nc)
+        vim.api.nvim_set_hl(0, "StatusLineTermNC", statusline_nc)
       end,
     },
     {
@@ -268,14 +276,10 @@ require("lazy").setup({
     {
       "neovim/nvim-lspconfig",
       event = { "BufReadPost", "BufNewFile", "VeryLazy" },
-      dependencies = { "hrsh7th/nvim-cmp" },
 
       config = function()
-        local capabilities = require("cmp_nvim_lsp").default_capabilities()
         local function configure_server(name, config)
-          vim.lsp.config(name, vim.tbl_deep_extend("force", {
-            capabilities = capabilities,
-          }, config or {}))
+          vim.lsp.config(name, config or {})
         end
 
         local function enable_server(name, executable)
@@ -308,10 +312,23 @@ require("lazy").setup({
           },
         })
 
+        local function complete_item_convert(item)
+          local kind = vim.lsp.protocol.CompletionItemKind[item.kind]
+          local icon = kind and utils.icons.lsp[kind]
+          if not icon then
+            return {}
+          end
+          return { kind = icon .. kind }
+        end
+
         vim.api.nvim_create_autocmd("LspAttach", {
           callback = function(args)
             local bufnr = args.buf
             local bufopts = { noremap = true, silent = true, buffer = bufnr }
+
+            vim.lsp.completion.enable(true, args.data.client_id, bufnr, {
+              convert = complete_item_convert,
+            })
 
             vim.keymap.set("n", "gD", vim.lsp.buf.declaration, bufopts)
             vim.keymap.set("n", "gd", vim.lsp.buf.definition, bufopts)
@@ -405,108 +422,6 @@ require("lazy").setup({
         enable_server("gopls", "gopls")
         enable_server("basedpyright", "basedpyright-langserver")
         enable_server("ruff", "ruff")
-      end,
-    },
-    {
-      "hrsh7th/nvim-cmp",
-      event = "InsertEnter",
-      dependencies = {
-        "hrsh7th/cmp-nvim-lsp",
-        "hrsh7th/cmp-nvim-lua",
-        "hrsh7th/cmp-buffer",
-        "hrsh7th/cmp-path",
-      },
-      opts = function()
-        local cmp = require("cmp")
-        return {
-          enabled = function()
-            local in_prompt = vim.bo.buftype == "prompt"
-            if in_prompt then
-              return false
-            end
-            local context = require("cmp.config.context")
-            return not (
-              context.in_treesitter_capture("comment") == true
-              or context.in_syntax_group("Comment")
-            )
-          end,
-          formatting = {
-            format = function(_, item)
-              local icon = utils.icons.lsp[item.kind] or ""
-              item.kind = string.format("%s %s", icon, item.kind)
-              return item
-            end,
-          },
-          confirmation = {
-            get_commit_characters = function()
-              return {}
-            end,
-          },
-          view = {
-            entries = "custom",
-          },
-          completion = {
-            completeopt = "menu,menuone,noinsert",
-            keyword_pattern = [[\%(-\?\d\+\%(\.\d\+\)\?\|\h\w*\%(-\w*\)*\)]],
-            keyword_length = 1,
-          },
-          snippet = {
-            expand = function(args)
-              vim.snippet.expand(args.body)
-            end,
-          },
-          mapping = {
-            ["<C-n>"] = cmp.mapping.select_next_item({
-              behavior = cmp.SelectBehavior.Insert,
-            }),
-            ["<C-p>"] = cmp.mapping.select_prev_item({
-              behavior = cmp.SelectBehavior.Insert,
-            }),
-            ["<C-d>"] = cmp.mapping.scroll_docs(-4),
-            ["<C-f>"] = cmp.mapping.scroll_docs(4),
-            ["<C-e>"] = cmp.mapping.abort(),
-            ["<C-y>"] = cmp.mapping(
-              cmp.mapping.confirm({
-                behavior = cmp.ConfirmBehavior.Insert,
-                select = true,
-              }),
-              { "i", "c" }
-            ),
-
-            ["<c-space>"] = cmp.mapping({
-              i = cmp.mapping.complete(),
-              c = function(
-                  _ --[[fallback]]
-              )
-                if cmp.visible() then
-                  if not cmp.confirm({ select = true }) then
-                    return
-                  end
-                else
-                  cmp.complete()
-                end
-              end,
-            }),
-            ["<tab>"] = cmp.config.disable,
-            ["<C-k>"] = cmp.mapping.complete({ reason = cmp.ContextReason.Auto }),
-          },
-          sources = cmp.config.sources({
-            { name = "nvim_lsp", keyword_length = 2 },
-            { name = "nvim_lua" },
-            { name = "path" },
-            { name = "buffer",   keyword_length = 2 },
-          }),
-          preselect = cmp.PreselectMode.None,
-          sorting = {
-            comparator = {
-              cmp.config.compare.offset,
-              cmp.config.compare.exact,
-              cmp.config.compare.score,
-              cmp.config.compare.recently_used,
-              cmp.config.compare.kind,
-            },
-          },
-        }
       end,
     },
     {
