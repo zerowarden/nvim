@@ -10,7 +10,7 @@ local function generate_test_text(n)
   local lines = {}
   for i = 1, n do
     -- include a few chars that sanitizer replaces
-    local s = string.format("Line %d — with Unicode hyphen – and nbsp space.", i)
+    local s = string.format("Line %d - with Unicode hyphen - and nbsp space.", i)
     table.insert(lines, s)
   end
   return lines
@@ -22,7 +22,7 @@ local function generate_unicode_text(n)
   for i = 1, n do
     -- throw in zero-widths, bullets, arrows
     local s =
-      string.format("☃️ → Line %d with ZWSP​ and ellipsis… and arrows ↔ ↦.", i)
+      string.format("☃️ -> Line %d with ZWSP and ellipsis... and arrows <-> ->.", i)
     table.insert(lines, s)
   end
   return lines

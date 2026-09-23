@@ -177,6 +177,7 @@ local default_config = {
 local State = {
   config = default_config,
   enabled = true,
+  initialized = false,
   ns = api.nvim_create_namespace(default_config.highlight.namespace),
   highlight_enabled = {},
   repl_cp_set = nil,
@@ -448,6 +449,10 @@ local function cmd_highlight_toggle()
 end
 
 function M.setup(user_config)
+  if State.initialized then
+    return M
+  end
+
   State.config = merge_user_config(user_config)
   State.ns = api.nvim_create_namespace(State.config.highlight.namespace)
   rebuild_fastsets()
@@ -461,27 +466,14 @@ function M.setup(user_config)
     end,
   })
 
-  api.nvim_create_user_command("FormatLLMOutput", function(opts)
-    cmd_format(opts)
-  end, { range = true })
-  api.nvim_create_user_command("LLMSanitizerHighlightShow", function()
-    cmd_highlight_show()
-  end, {})
-  api.nvim_create_user_command("LLMSanitizerHighlightClear", function()
-    cmd_highlight_clear()
-  end, {})
-  api.nvim_create_user_command("LLMSanitizerHighlightToggle", function()
-    cmd_highlight_toggle()
-  end, {})
-
-  vim.keymap.set(
-    "n",
-    "<leader>ls",
-    cmd_highlight_toggle,
-    { desc = "Toggle LLM Sanitizer highlights" }
-  )
-  vim.keymap.set("n", "<leader>lf", cmd_format, { desc = "Format LLM output" })
+  State.initialized = true
+  return M
 end
+
+M.format = cmd_format
+M.highlight_show = cmd_highlight_show
+M.highlight_clear = cmd_highlight_clear
+M.highlight_toggle = cmd_highlight_toggle
 
 -- Keep this exported for benchmarks/tests
 M.process_range = process_range

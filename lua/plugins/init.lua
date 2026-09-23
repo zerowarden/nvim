@@ -83,15 +83,43 @@ if not (vim.uv or vim.loop).fs_stat(lazypath) then
 end
 vim.opt.rtp:prepend(lazypath)
 
-require("plugins.llm_sanitizer").setup({})
+local function sanitizer_action(action)
+  return function(...)
+    local sanitizer = require("plugins.llm_sanitizer")
+    sanitizer.setup({})
+    return sanitizer[action](...)
+  end
+end
+
+vim.api.nvim_create_user_command("FormatLLMOutput", sanitizer_action("format"), { range = true })
+vim.api.nvim_create_user_command(
+  "LLMSanitizerHighlightShow",
+  sanitizer_action("highlight_show"),
+  {}
+)
+vim.api.nvim_create_user_command(
+  "LLMSanitizerHighlightClear",
+  sanitizer_action("highlight_clear"),
+  {}
+)
+vim.api.nvim_create_user_command(
+  "LLMSanitizerHighlightToggle",
+  sanitizer_action("highlight_toggle"),
+  {}
+)
+
+vim.keymap.set("n", "<leader>lf", sanitizer_action("format"), { desc = "Format LLM output" })
+vim.keymap.set(
+  "n",
+  "<leader>ls",
+  sanitizer_action("highlight_toggle"),
+  { desc = "Toggle LLM Sanitizer highlights" }
+)
 
 require("lazy").setup({
   defaults = { lazy = true },
   ui = { border = "rounded" },
   performance = {
-    cache = {
-      enabled = true,
-    },
     rtp = {
       disabled_plugins = {
         "netrwPlugin",
@@ -113,7 +141,10 @@ require("lazy").setup({
     },
     {
       url = "https://codeberg.org/andyg/leap.nvim",
-      lazy = false
+      keys = {
+        { "s", "<Plug>(leap)", mode = "n" },
+        { "S", "<Plug>(leap-backward)", mode = "n" },
+      },
     },
     {
       "sainnhe/sonokai",
@@ -124,7 +155,9 @@ require("lazy").setup({
         g.sonokai_enable_italic = true
         g.sonokai_style = "andromeda"
         g.sonokai_better_performance = 1
-        g.sonokai_transparent_background = 1
+        g.sonokai_float_style = "blend"
+        g.sonokai_show_eob = 0
+        g.sonokai_transparent_background = 2
         vim.cmd.colorscheme("sonokai")
       end,
     },
@@ -140,7 +173,6 @@ require("lazy").setup({
         fzf_key("<leader>ld", "lsp_definitions", "LSP definitions"),
         fzf_key("<leader>lr", "lsp_references", "LSP references"),
         fzf_key("<leader>li", "lsp_implementations", "LSP implementations"),
-        fzf_key("<leader>lw", "lsp_workspace_symbols", "Workspace symbols"),
         fzf_key("<leader>lx", "diagnostics_workspace", "Workspace diagnostics"),
 
         fzf_key("<leader>gs", "git_status", "Git status"),
@@ -261,6 +293,18 @@ require("lazy").setup({
               [vim.diagnostic.severity.INFO] = utils.icons.diagnostics.Info,
               [vim.diagnostic.severity.HINT] = utils.icons.diagnostics.Hint,
             },
+          },
+          jump = {
+            on_jump = function(diagnostic, bufnr)
+              if not diagnostic then
+                return
+              end
+              vim.diagnostic.open_float({
+                bufnr = bufnr,
+                pos = { diagnostic.lnum, diagnostic.col },
+                focus = false,
+              })
+            end,
           },
         })
 
@@ -593,5 +637,4 @@ require("lazy").setup({
       end,
     },
   },
-  checker = { enabled = false },
 })
