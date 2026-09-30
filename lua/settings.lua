@@ -4,7 +4,7 @@ local opt = vim.opt
 local map = vim.keymap.set
 
 g.mapleader = ","
-g.maplocalleader = ","
+g.maplocalleader = "\\"
 
 opt.expandtab = true
 opt.shiftwidth = 2

@@ -147,34 +147,11 @@ require("lazy").setup({
       },
     },
     {
-      "sainnhe/sonokai",
-      lazy = false,
-      priority = 1000,
-      config = function()
-        -- Optionally configure and load the colorscheme
-        g.sonokai_enable_italic = true
-        g.sonokai_style = "andromeda"
-        g.sonokai_better_performance = 1
-        g.sonokai_float_style = "blend"
-        g.sonokai_show_eob = 0
-        g.sonokai_transparent_background = 2
-        vim.cmd.colorscheme("sonokai")
-
-        local palette = vim.fn["sonokai#get_palette"](g.sonokai_style, vim.empty_dict())
-        local statusline = { fg = palette.fg[1], bg = palette.bg3[1] }
-        local statusline_nc = { fg = palette.grey[1], bg = palette.bg1[1] }
-        vim.api.nvim_set_hl(0, "StatusLine", statusline)
-        vim.api.nvim_set_hl(0, "StatusLineTerm", statusline)
-        vim.api.nvim_set_hl(0, "StatusLineNC", statusline_nc)
-        vim.api.nvim_set_hl(0, "StatusLineTermNC", statusline_nc)
-      end,
-    },
-    {
       "ibhagwan/fzf-lua",
       cmd = "FzfLua",
       keys = {
         fzf_key("<leader>t", "global", "Go anywhere"),
-        fzf_key("<leader>rg", "live_grep", "Ripgrep"),
+        fzf_key("<leader>rg", "live_grep", "kipgrep"),
         fzf_key("<leader>b", "buffers", "Buffers"),
         fzf_key("<leader>rr", "resume", "Resume last picker"),
 
@@ -207,6 +184,34 @@ require("lazy").setup({
           desc = "Search tags TODO|FIX...",
         },
       },
+    },
+    {
+      'MagicDuck/grug-far.nvim',
+      -- Note (lazy loading): grug-far.lua defers all it's requires so it's lazy by default
+      -- additional lazy config to defer loading is not really needed...
+     keys = {
+        {
+          "<leader>gr",
+          function() require("grug-far").open() end,
+          mode = { "n", "x" },
+          desc = "Search and replace (grug-far)",
+        },
+        {
+          "<leader>gw",
+          function()
+            require("grug-far").open({ prefills = { search = vim.fn.expand("<cword>") } })
+          end,
+          desc = "Search and replace word under cursor",
+        },
+      },
+      config = function()
+        -- optional setup call to override plugin options
+        -- alternatively you can set options with vim.g.grug_far = { ... }
+        require('grug-far').setup({
+          -- options, see Configuration section below
+          -- there are no required options atm
+        });
+      end
     },
     {
       "lewis6991/gitsigns.nvim",
