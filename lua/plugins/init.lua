@@ -214,6 +214,32 @@ require("lazy").setup({
       end
     },
     {
+      "gunasekar/markview-smart-tables.nvim",
+      dependencies = { "OXY2DEV/markview.nvim" },
+      opts = {
+        wrap_width = 0.9,    -- max table width: fraction of the window (0<n<=1) or absolute column count (n>1)
+        wrap_minwidth = 5,   -- smallest a column may shrink to before long words are hard-broken
+      },
+    },
+    {
+      "OXY2DEV/markview.nvim",
+      ft = "markdown",
+      opts = {
+        renderers = {
+            markdown_table = function (buffer, item)
+              require("markview-smart-tables").render(buffer, item)
+            end,
+          },
+        preview = {
+          enable = false,
+          splitview_winopts = { split = "right" }
+        },
+      },
+      keys = {
+        { "<leader>mp", "<cmd>Markview splitToggle<cr>", ft = "markdown", desc = "Markdown split preview" },
+      },
+    },
+    {
       "lewis6991/gitsigns.nvim",
       event = { "BufReadPre", "BufNewFile" },
       opts = {
